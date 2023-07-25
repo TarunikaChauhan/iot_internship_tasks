@@ -1,15 +1,21 @@
 import requests
-import RPi.GPIO as GPIO
 import time
+
+# Replace with your Arduino's IP address and port
+arduino_ip = "your_arduino_ip"
+arduino_port = "your_arduino_port"
 
 # Replace with your server URL or IP address
 server_url = "http://your_server_ip_or_domain/parking_status.php"
 
-parking_pin = 18  # GPIO pin for parking sensor
-
-def setup():
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(parking_pin, GPIO.IN)
+def get_parking_status():
+    try:
+        # Send a request to the Arduino to get the parking status
+        response = requests.get(f"http://{arduino_ip}:{arduino_port}/get_parking_status")
+        return response.text.strip()  # Assuming the response is either "occupied" or "vacant"
+    except requests.exceptions.RequestException as e:
+        print("Error getting parking status from Arduino:", e)
+        return None
 
 def send_parking_status(status):
     payload = {"status": status}
@@ -21,19 +27,14 @@ def send_parking_status(status):
 
 def loop():
     while True:
-        parking_status = GPIO.input(parking_pin)
-        send_parking_status(parking_status)
+        parking_status = get_parking_status()
+        if parking_status is not None:
+            send_parking_status(parking_status)
         time.sleep(1)
-
-def cleanup():
-    GPIO.cleanup()
 
 if __name__ == "__main__":
     print("Smart Parking System - IoT based Car Parking Management")
-    setup()
     try:
         loop()
     except KeyboardInterrupt:
         print("Exiting...")
-    finally:
-        cleanup()
