@@ -1,40 +1,44 @@
-import requests
-import time
+#include <ESP8266WiFi.h>
+#include <WiFiClient.h>
+#include <ESP8266HTTPClient.h>
 
-# Replace with your Arduino's IP address and port
-arduino_ip = "your_arduino_ip"
-arduino_port = "your_arduino_port"
+const char* ssid = "your_SSID";
+const char* password = "your_PASSWORD";
+const char* serverURL = "http://your_server_ip_or_domain/parking_status.php";
 
-# Replace with your server URL or IP address
-server_url = "http://your_server_ip_or_domain/parking_status.php"
+const int parking_pin = 18;  // GPIO pin for the parking sensor
 
-def get_parking_status():
-    try:
-        # Send a request to the Arduino to get the parking status
-        response = requests.get(f"http://{arduino_ip}:{arduino_port}/get_parking_status")
-        return response.text.strip()  # Assuming the response is either "occupied" or "vacant"
-    except requests.exceptions.RequestException as e:
-        print("Error getting parking status from Arduino:", e)
-        return None
+void setup() {
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
+  Serial.println("Connected to WiFi");
+}
 
-def send_parking_status(status):
-    payload = {"status": status}
-    try:
-        response = requests.post(server_url, data=payload)
-        print("Server response:", response.text)
-    except requests.exceptions.RequestException as e:
-        print("Error sending parking status:", e)
+void loop() {
+  int parking_status = digitalRead(parking_pin);
+  send_parking_status(parking_status);
+  delay(1000);
+}
 
-def loop():
-    while True:
-        parking_status = get_parking_status()
-        if parking_status is not None:
-            send_parking_status(parking_status)
-        time.sleep(1)
-
-if __name__ == "__main__":
-    print("Smart Parking System - IoT based Car Parking Management")
-    try:
-        loop()
-    except KeyboardInterrupt:
-        print("Exiting...")
+void send_parking_status(int status) {
+  HTTPClient http;
+  http.begin(serverURL);
+  http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+  
+  String payload = "status=" + String(status);
+  
+  int httpResponseCode = http.POST(payload);
+  if (httpResponseCode > 0) {
+    String response = http.getString();
+    Serial.println("Server response: " + response);
+  } else {
+    Serial.print("Error code: ");
+    Serial.println(httpResponseCode);
+  }
+  
+  http.end();
+}
