@@ -1,45 +1,67 @@
-import requests
-import time
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BME680.h>
+#include <SoftwareSerial.h>
 
-# Replace with your Arduino's IP address
-arduino_ip = "your_arduino_ip"
-# Replace with the endpoint on the Arduino to get sensor data
-sensor_endpoint = "/get_sensor_data"
+// Replace with your Wi-Fi credentials
+const char* ssid = "your_SSID";
+const char* password = "your_PASSWORD";
 
-# Replace with the server URL or IP address to send data
-server_url = "http://your_server_ip_or_domain/air_pollution_data"
+// Replace with your server URL or IP address
+const char* serverURL = "http://your_server_ip_or_domain/air_pollution.php";
 
-def read_sensor_data():
-    # Implement code to communicate with your Arduino over Wi-Fi or serial (depending on your setup)
-    # This function should return the sensor data (e.g., gas concentration, temperature, etc.)
-    # Example:
-    # gas_concentration = arduino_request(arduino_ip + sensor_endpoint)
-    # return gas_concentration
+const int airSensorPin = A0;
 
-def send_data_to_server(data):
-    # Send sensor data to the server using HTTP POST request
-    try:
-        response = requests.post(server_url, json=data)
-        if response.status_code == 200:
-            print("Data sent successfully to the server!")
-        else:
-            print("Failed to send data. Error code:", response.status_code)
-    except requests.exceptions.RequestException as e:
-        print("Failed to send data:", e)
+Adafruit_BME680 bme;  // Initialize the BME680 sensor
 
-def main():
-    while True:
-        sensor_data = read_sensor_data()
-        if sensor_data:
-            # Process sensor data and create a dictionary with relevant information
-            data_to_send = {
-                "gas_concentration": sensor_data["gas_concentration"],
-                "temperature": sensor_data["temperature"],
-                # Add more data as needed
-            }
-            send_data_to_server(data_to_send)
+void setup() {
+  Serial.begin(9600);
+  Wire.begin();
+  bme.begin(0x76);  // Start the BME680 sensor
 
-        time.sleep(60)  # Send data every 60 seconds
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
 
-if __name__ == "__main__":
-    main()
+  Serial.println("Connected to WiFi");
+}
+
+void loop() {
+  // Read air quality data from the sensor
+  float airQuality = readAirQuality();
+
+  // Send the data to the server
+  sendAirQualityData(airQuality);
+
+  delay(60000);  // Send data every minute
+}
+
+float readAirQuality() {
+  // Read data from the sensor and return the air quality value
+  // You need to implement the specific logic for your air quality sensor
+  // Consult the sensor datasheet and library documentation for the correct implementation
+}
+
+void sendAirQualityData(float airQuality) {
+  // Prepare payload for POST request
+  String payload = "air_quality=" + String(airQuality);
+
+  HTTPClient http;
+  http.begin(serverURL);
+  http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+
+  int httpResponseCode = http.POST(payload);
+
+  if (httpResponseCode > 0) {
+    String response = http.getString();
+    Serial.println("Server response: " + response);
+  } else {
+    Serial.print("Error code: ");
+    Serial.println(httpResponseCode);
+  }
+
+  http.end();
+}
